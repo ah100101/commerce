@@ -1,23 +1,52 @@
+export const storeCatalog = {
+  ids: 'mens,womens,newarrivals,top-seller'
+};
+
 export type SortFilterItem = {
   title: string;
   slug: string | null;
-  sortKey: 'RELEVANCE' | 'BEST_SELLING' | 'CREATED_AT' | 'PRICE';
+  sortKey:
+    | 'best-matches'
+    | 'price-low-to-high'
+    | 'price-high-to-low'
+    | 'product-name-ascending'
+    | 'product-name-descending';
   reverse: boolean;
 };
 
 export const defaultSort: SortFilterItem = {
-  title: 'Relevance',
-  slug: null,
-  sortKey: 'RELEVANCE',
+  title: 'Best Matches',
+  slug: 'best-matches',
+  sortKey: 'best-matches',
   reverse: false
 };
 
 export const sorting: SortFilterItem[] = [
   defaultSort,
-  { title: 'Trending', slug: 'trending-desc', sortKey: 'BEST_SELLING', reverse: false }, // asc
-  { title: 'Latest arrivals', slug: 'latest-desc', sortKey: 'CREATED_AT', reverse: true },
-  { title: 'Price: Low to high', slug: 'price-asc', sortKey: 'PRICE', reverse: false }, // asc
-  { title: 'Price: High to low', slug: 'price-desc', sortKey: 'PRICE', reverse: true }
+  {
+    title: 'Price Low to High',
+    slug: 'price-low-to-high',
+    sortKey: 'price-low-to-high',
+    reverse: false
+  },
+  {
+    title: 'Price High to Low',
+    slug: 'price-high-to-low',
+    sortKey: 'price-high-to-low',
+    reverse: false
+  },
+  {
+    title: 'Name A - Z',
+    slug: 'product-name-ascending',
+    sortKey: 'product-name-ascending',
+    reverse: false
+  },
+  {
+    title: 'Name Z - A',
+    slug: 'product-name-descending',
+    sortKey: 'product-name-descending',
+    reverse: false
+  }
 ];
 
 export const TAGS = {
@@ -28,4 +57,3 @@ export const TAGS = {
 
 export const HIDDEN_PRODUCT_TAG = 'nextjs-frontend-hidden';
 export const DEFAULT_OPTION = 'Default Title';
-export const SHOPIFY_GRAPHQL_API_ENDPOINT = '/api/2023-01/graphql.json';
