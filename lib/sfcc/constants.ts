@@ -20,3 +20,31 @@ export const defaultSort: SortFilterItem = {
   sortKey: 'best-matches',
   reverse: false
 };
+
+export const sorting: SortFilterItem[] = [
+  defaultSort,
+  {
+    title: 'Price Low to High',
+    slug: 'price-low-to-high',
+    sortKey: 'price-low-to-high',
+    reverse: false
+  },
+  {
+    title: 'Price High to Low',
+    slug: 'price-high-to-low',
+    sortKey: 'price-high-to-low',
+    reverse: false
+  },
+  {
+    title: 'Name A - Z',
+    slug: 'product-name-ascending',
+    sortKey: 'product-name-ascending',
+    reverse: false
+  },
+  {
+    title: 'Name Z - A',
+    slug: 'product-name-descending',
+    sortKey: 'product-name-descending',
+    reverse: false
+  }
+];

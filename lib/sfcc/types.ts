@@ -1,4 +1,10 @@
-import { Product as SalesforceProduct } from 'commerce-sdk';
+export type Connection<T> = {
+  edges: Array<Edge<T>>;
+};
+
+export type Edge<T> = {
+  node: T;
+};
 
 export type Collection = {
   handle: string;
@@ -9,7 +15,7 @@ export type Collection = {
   path: string;
 };
 
-export type Product = {
+export type SalesforceProduct = {
   id: string;
   title: string;
   handle: string;
@@ -26,6 +32,12 @@ export type Product = {
   variants: ProductVariant[];
   images: Image[];
   availableForSale: boolean;
+  updatedAt: string;
+};
+
+export type Product = Omit<SalesforceProduct, 'variants' | 'images'> & {
+  variants: ProductVariant[];
+  images: Image[];
 };
 
 export type ProductVariant = {
@@ -62,20 +74,24 @@ export type SEO = {
   description: string;
 };
 
-export type Cart = {
-  id: string;
+export type SalesforceCart = {
+  id: string | undefined;
   checkoutUrl: string;
   cost: {
     subtotalAmount: Money;
     totalAmount: Money;
     totalTaxAmount: Money;
   };
+  lines: Connection<CartItem>;
   totalQuantity: number;
+};
+
+export type Cart = Omit<SalesforceCart, 'lines'> & {
   lines: CartItem[];
 };
 
 export type CartItem = {
-  id: string;
+  id: string | undefined;
   quantity: number;
   cost: {
     totalAmount: Money;
@@ -87,8 +103,15 @@ export type CartItem = {
       name: string;
       value: string;
     }[];
-    product: Product;
+    product: CartProduct;
   };
+};
+
+export type CartProduct = {
+  id: string;
+  handle: string;
+  title: string;
+  featuredImage: Image;
 };
 
 export type ProductRecommendations = {
@@ -106,7 +129,18 @@ export type RecommendedProduct = {
   };
 };
 
-type SortedProductResult = {
-  productResult: SalesforceProduct.ShopperProducts.Product;
-  index: number;
+export type Menu = {
+  title: string;
+  path: string;
+};
+
+export type Page = {
+  id: string;
+  title: string;
+  handle: string;
+  body: string;
+  bodySummary: string;
+  seo?: SEO;
+  createdAt: string;
+  updatedAt: string;
 };
