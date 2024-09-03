@@ -1,7 +1,7 @@
 import Grid from 'components/grid';
 import ProductGridItems from 'components/layout/product-grid-items';
+import { getProducts } from 'lib/sfcc';
 import { defaultSort, sorting } from 'lib/sfcc/constants';
-import { getProducts } from 'lib/sfcc/scapi';
 
 export const metadata = {
   title: 'Search',

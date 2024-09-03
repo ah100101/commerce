@@ -1,5 +1,5 @@
 import { GridTileImage } from 'components/grid/tile';
-import { getCollectionProducts } from 'lib/sfcc/scapi';
+import { getCollectionProducts } from 'lib/sfcc';
 import { Product } from 'lib/sfcc/types';
 import Link from 'next/link';
 

@@ -1,5 +1,5 @@
+import { getCollections, getProducts } from 'lib/sfcc';
 import { getPages } from 'lib/sfcc/content';
-import { getCollections, getProducts } from 'lib/sfcc/scapi';
 import { validateEnvironmentVariables } from 'lib/sfcc/utils';
 import { MetadataRoute } from 'next';
 

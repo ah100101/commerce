@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Suspense } from 'react';
 
-import { getCollections } from 'lib/sfcc/scapi';
+import { getCollections } from 'lib/sfcc';
 import FilterList from './filter';
 
 async function CollectionList() {

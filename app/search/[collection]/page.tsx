@@ -3,8 +3,8 @@ import { notFound } from 'next/navigation';
 
 import Grid from 'components/grid';
 import ProductGridItems from 'components/layout/product-grid-items';
+import { getCollection, getCollectionProducts } from 'lib/sfcc';
 import { defaultSort, sorting } from 'lib/sfcc/constants';
-import { getCollection, getCollectionProducts } from 'lib/sfcc/scapi';
 
 export async function generateMetadata({
   params

@@ -1,4 +1,4 @@
-import { getCollectionProducts } from 'lib/sfcc/scapi';
+import { getCollectionProducts } from 'lib/sfcc';
 import Link from 'next/link';
 import { GridTileImage } from './grid/tile';
 
