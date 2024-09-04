@@ -114,5 +114,8 @@ export async function redirectToCheckout() {
 
 export async function createCartAndSetCookie() {
   let cart = await createCart();
-  cookies().set('cartId', cart.id!);
+  // set the cartId to the same duration as the guest
+  cookies().set('cartId', cart.id!, {
+    maxAge: 60 * 60
+  });
 }

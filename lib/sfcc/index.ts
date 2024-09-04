@@ -119,8 +119,23 @@ export const getProducts = async ({
 };
 
 export async function createCart(): Promise<Cart> {
+  let guestToken = cookies().get('guest_token')?.value;
+
+  // if there is not a guest token, get one and store it in a cookie
+  if (!guestToken) {
+    const tokenResponse = await getGuestUserAuthToken();
+    guestToken = tokenResponse.access_token;
+    cookies().set('guest_token', guestToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60,
+      path: '/'
+    });
+  }
+
   // get the guest config
-  const config = await getGuestUserConfig();
+  const config = await getGuestUserConfig(guestToken);
 
   // initialize the basket config
   const basketClient = new Checkout.ShopperBaskets(config);
@@ -132,21 +147,14 @@ export async function createCart(): Promise<Cart> {
 
   const cartItems = await getCartItems(createdBasket);
 
-  const basket = await basketClient.getBasket({
-    parameters: {
-      basketId: createdBasket.basketId!,
-      organizationId: process.env.SFCC_ORGANIZATIONID,
-      siteId: process.env.SFCC_SITEID
-    }
-  });
-
-  console.log({ testBasket: basket });
-
   return reshapeBasket(createdBasket, cartItems);
 }
 
 export async function getCart(cartId: string | undefined): Promise<Cart | undefined> {
-  const config = await getGuestUserConfig();
+  // get the guest token to get the correct guest cart
+  const guestToken = cookies().get('guest_token')?.value;
+
+  const config = await getGuestUserConfig(guestToken);
 
   if (!cartId) return;
 
@@ -175,7 +183,9 @@ export async function addToCart(
   cartId: string,
   lines: { merchandiseId: string; quantity: number }[]
 ) {
-  const config = await getGuestUserConfig();
+  // get the guest token to get the correct guest cart
+  const guestToken = cookies().get('guest_token')?.value;
+  const config = await getGuestUserConfig(guestToken);
 
   try {
     const basketClient = new Checkout.ShopperBaskets(config);
@@ -208,7 +218,9 @@ export async function removeFromCart(cartId: string, lineIds: string[]): Promise
   // Next Commerce only sends one lineId at a time
   if (lineIds.length !== 1) throw new Error('Invalid number of line items provided');
 
-  const config = await getGuestUserConfig();
+  // get the guest token to get the correct guest cart
+  const guestToken = cookies().get('guest_token')?.value;
+  const config = await getGuestUserConfig(guestToken);
 
   const basketClient = new Checkout.ShopperBaskets(config);
 
@@ -227,7 +239,9 @@ export async function updateCart(
   cartId: string,
   lines: { id: string; merchandiseId: string; quantity: number }[]
 ): Promise<Cart> {
-  const config = await getGuestUserConfig();
+  // get the guest token to get the correct guest cart
+  const guestToken = cookies().get('guest_token')?.value;
+  const config = await getGuestUserConfig(guestToken);
 
   const basketClient = new Checkout.ShopperBaskets(config);
   const basket = await basketClient.getBasket({
