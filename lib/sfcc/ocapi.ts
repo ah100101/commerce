@@ -26,7 +26,7 @@ async function ocFetch<T>(options: {
   tags?: string[];
   variables?: ExtractVariables<T>;
 }): Promise<{ status: number; body: T } | never> {
-  const apiEndpoint = `${ocapiDomain}${process.env.SFCC_OPENCOMMERCE_DATA_API_ENDPOINT}?client_id=${process.env.SFCC_CLIENT_ID}`;
+  const apiEndpoint = `${ocapiDomain}${process.env.SFCC_OPENCOMMERCE_DATA_API_ENDPOINT}?client_id=${process.env.SFCC_CLIENT_ID}&channel_id=${process.env.SFCC_SITEID}`;
   return salesforceFetch<T>({
     ...options,
     apiEndpoint

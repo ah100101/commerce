@@ -20,7 +20,7 @@ export async function scapiFetch<T>(options: {
 export async function fetchAccessToken() {
   const response = await scapiFetch<{ access_token: string }>({
     method: 'POST',
-    apiEndpoint: `/shopper/auth/v1/organizations/${process.env.SFCC_ORGANIZATIONID}/oauth2/token?grant_type=client_credentials`,
+    apiEndpoint: `/shopper/auth/v1/organizations/${process.env.SFCC_ORGANIZATIONID}/oauth2/token?grant_type=client_credentials&channel_id=${process.env.SFCC_SITEID}`,
     headers: {
       Authorization: `Basic ${Buffer.from(
         `${process.env.SFCC_CLIENT_ID}:${process.env.SFCC_SECRET}`

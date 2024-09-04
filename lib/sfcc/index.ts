@@ -257,7 +257,7 @@ async function getGuestUserAuthToken(): Promise<Customer.ShopperLogin.TokenRespo
 
   return await loginClient.getAccessToken({
     headers,
-    body: { grant_type: 'client_credentials' }
+    body: { grant_type: 'client_credentials', channel_id: process.env.SFCC_SITEID }
   });
 }
 
@@ -302,7 +302,8 @@ async function initializeOrganizationConfig() {
   const shopperToken = await client.getAccessToken({
     headers,
     body: {
-      grant_type: 'client_credentials'
+      grant_type: 'client_credentials',
+      channel_id: process.env.SFCC_SITEID
     }
   });
 
@@ -367,7 +368,7 @@ async function searchProducts({
 
   const productsClient = new SalesforceProduct.ShopperProducts(config);
   await Promise.all(
-    searchResults.hits.map(async (product, index: number) => {
+    searchResults.hits.map(async (product: { productId: string }, index: number) => {
       const productResult = await productsClient.getProduct({
         parameters: {
           organizationId: config.parameters.organizationId,
