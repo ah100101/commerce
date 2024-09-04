@@ -2,63 +2,125 @@ import { Checkout, Customer, Product as SalesforceProduct, Search } from 'commer
 import { ShopperBaskets } from 'commerce-sdk/dist/checkout/checkout';
 import { defaultSort, storeCatalog, TAGS } from 'lib/constants';
 import { unstable_cache as cache, revalidateTag } from 'next/cache';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { getProductRecommendations as getOCProductRecommendations } from './ocapi';
 import { Cart, CartItem, Collection, Image, Product, ProductRecommendations } from './types';
+
+const config = {
+  headers: {},
+  parameters: {
+    clientId: process.env.SFCC_CLIENT_ID,
+    organizationId: process.env.SFCC_ORGANIZATIONID,
+    shortCode: process.env.SFCC_SHORTCODE,
+    siteId: process.env.SFCC_SITEID
+  }
+};
 
 type SortedProductResult = {
   productResult: SalesforceProduct.ShopperProducts.Product;
   index: number;
 };
 
-export const getCollections = cache(
-  async () => {
-    return await getSFCCCollections();
-  },
-  ['get-collections'],
-  {
-    tags: [TAGS.collections]
-  }
-);
+export const getCollections = async () => {
+  const cookieStore = cookies();
+  const token = cookieStore.get('guest_token')?.value || '';
+
+  const cachedGetSFCCCollections = cache(
+    async (tokenParam: string) => {
+      return await getSFCCCollections(tokenParam);
+    },
+    ['get-collections'],
+    {
+      tags: [TAGS.collections]
+    }
+  );
+
+  return cachedGetSFCCCollections(token);
+};
 
 export function getCollection(handle: string): Promise<Collection | undefined> {
   return getCollections().then((collections) => collections.find((c) => c.handle === handle));
 }
 
-export const getProduct = cache(async (id: string) => getSFCCProduct(id), ['get-product'], {
-  tags: [TAGS.products]
-});
+export const getProduct = async (id: string) => {
+  const cookieStore = cookies();
+  const token = cookieStore.get('guest_token')?.value || '';
 
-export const getCollectionProducts = cache(
-  async ({
-    collection,
-    reverse,
-    sortKey
-  }: {
-    collection: string;
-    reverse?: boolean;
-    sortKey?: string;
-  }) => {
-    return await searchProducts({ categoryId: collection, sortKey });
-  },
-  ['get-collection-products'],
-  { tags: [TAGS.products, TAGS.collections] }
-);
+  const cachedGetSFCCProduct = cache(
+    async (productId: string, token: string) => {
+      return await getSFCCProduct(productId, token);
+    },
+    ['get-product'],
+    {
+      tags: [TAGS.products]
+    }
+  );
 
-export const getProducts = cache(
-  async ({ query, sortKey }: { query?: string; sortKey?: string; reverse?: boolean }) => {
-    return await searchProducts({ query, sortKey });
-  },
-  ['get-products'],
-  {
-    tags: [TAGS.products]
-  }
-);
+  return cachedGetSFCCProduct(id, token);
+};
+
+export const getCollectionProducts = async ({
+  collection,
+  reverse,
+  sortKey
+}: {
+  collection: string;
+  reverse?: boolean;
+  sortKey?: string;
+}) => {
+  const cookieStore = cookies();
+  const token = cookieStore.get('guest_token')?.value || '';
+
+  const cachedCollectionProducts = cache(
+    async (
+      {
+        collection,
+        reverse,
+        sortKey
+      }: {
+        collection: string;
+        reverse?: boolean;
+        sortKey?: string;
+      },
+      token: string
+    ) => {
+      return await searchProducts({ categoryId: collection, sortKey }, token);
+    },
+    ['get-collection-products'],
+    { tags: [TAGS.products, TAGS.collections] }
+  );
+
+  return cachedCollectionProducts({ collection, reverse, sortKey }, token);
+};
+
+export const getProducts = async ({
+  query,
+  sortKey
+}: {
+  query?: string;
+  sortKey?: string;
+  reverse?: boolean;
+}) => {
+  const cookieStore = cookies();
+  const token = cookieStore.get('guest_token')?.value || '';
+
+  const cachedSearchProducts = cache(
+    async (searchParams: { query?: string; sortKey?: string }, token: string) => {
+      return await searchProducts(searchParams, token);
+    },
+    ['get-products'],
+    {
+      tags: [TAGS.products]
+    }
+  );
+
+  return cachedSearchProducts({ query, sortKey }, token);
+};
 
 export async function createCart(): Promise<Cart> {
   // get the guest config
-  const config = await initializeGuestConfig();
+  const config = await getGuestUserConfig();
 
   // initialize the basket config
   const basketClient = new Checkout.ShopperBaskets(config);
@@ -69,19 +131,33 @@ export async function createCart(): Promise<Cart> {
   });
 
   const cartItems = await getCartItems(createdBasket);
+
+  const basket = await basketClient.getBasket({
+    parameters: {
+      basketId: createdBasket.basketId!,
+      organizationId: process.env.SFCC_ORGANIZATIONID,
+      siteId: process.env.SFCC_SITEID
+    }
+  });
+
+  console.log({ testBasket: basket });
+
   return reshapeBasket(createdBasket, cartItems);
 }
 
 export async function getCart(cartId: string | undefined): Promise<Cart | undefined> {
-  const config = await initializeGuestConfig();
+  const config = await getGuestUserConfig();
 
   if (!cartId) return;
 
   try {
     const basketClient = new Checkout.ShopperBaskets(config);
+
     const basket = await basketClient.getBasket({
       parameters: {
-        basketId: cartId
+        basketId: cartId,
+        organizationId: process.env.SFCC_ORGANIZATIONID,
+        siteId: process.env.SFCC_SITEID
       }
     });
 
@@ -99,13 +175,16 @@ export async function addToCart(
   cartId: string,
   lines: { merchandiseId: string; quantity: number }[]
 ) {
-  const config = await initializeGuestConfig();
+  const config = await getGuestUserConfig();
 
   try {
     const basketClient = new Checkout.ShopperBaskets(config);
+
     const basket = await basketClient.addItemToBasket({
       parameters: {
-        basketId: cartId
+        basketId: cartId,
+        organizationId: process.env.SFCC_ORGANIZATIONID,
+        siteId: process.env.SFCC_SITEID
       },
       body: lines.map((line) => {
         return {
@@ -129,7 +208,7 @@ export async function removeFromCart(cartId: string, lineIds: string[]): Promise
   // Next Commerce only sends one lineId at a time
   if (lineIds.length !== 1) throw new Error('Invalid number of line items provided');
 
-  const config = await initializeGuestConfig();
+  const config = await getGuestUserConfig();
 
   const basketClient = new Checkout.ShopperBaskets(config);
 
@@ -148,7 +227,7 @@ export async function updateCart(
   cartId: string,
   lines: { id: string; merchandiseId: string; quantity: number }[]
 ): Promise<Cart> {
-  const config = await initializeGuestConfig();
+  const config = await getGuestUserConfig();
 
   const basketClient = new Checkout.ShopperBaskets(config);
   const basket = await basketClient.getBasket({
@@ -185,7 +264,7 @@ export async function getProductRecommendations(productId: string): Promise<Prod
 
   if (!ocProductRecommendations?.recommendations?.length) return [];
 
-  const clientConfig = await initializeOrganizationConfig();
+  const clientConfig = await getGuestUserConfig();
   const productsClient = new SalesforceProduct.ShopperProducts(clientConfig);
 
   const recommendedProducts: SortedProductResult[] = [];
@@ -240,83 +319,35 @@ export async function revalidate(req: NextRequest): Promise<NextResponse> {
 }
 
 async function getGuestUserAuthToken(): Promise<Customer.ShopperLogin.TokenResponse> {
-  const config = {
-    headers: {},
-    parameters: {
-      clientId: process.env.SFCC_CLIENT_ID,
-      organizationId: process.env.SFCC_ORGANIZATIONID,
-      shortCode: process.env.SFCC_SHORTCODE,
-      siteId: process.env.SFCC_SITEID
-    }
-  };
   const base64data = Buffer.from(
     `${process.env.SFCC_CLIENT_ID}:${process.env.SFCC_SECRET}`
   ).toString('base64');
   const headers = { Authorization: `Basic ${base64data}` };
-  const loginClient = new Customer.ShopperLogin(config);
+  const client = new Customer.ShopperLogin(config);
 
-  return await loginClient.getAccessToken({
+  return await client.getAccessToken({
     headers,
     body: { grant_type: 'client_credentials', channel_id: process.env.SFCC_SITEID }
   });
 }
 
-async function initializeGuestConfig() {
-  const token = await getGuestUserAuthToken();
+async function getGuestUserConfig(token?: string) {
+  const guestToken = token || (await getGuestUserAuthToken()).access_token;
 
-  if (!token.access_token) {
+  if (!guestToken) {
     throw new Error('Failed to retrieve access token');
   }
 
   return {
+    ...config,
     headers: {
-      authorization: `Bearer ${token.access_token}`
-    },
-    parameters: {
-      clientId: process.env.SFCC_CLIENT_ID,
-      organizationId: process.env.SFCC_ORGANIZATIONID,
-      shortCode: process.env.SFCC_SHORTCODE,
-      siteId: process.env.SFCC_SITEID
+      authorization: `Bearer ${guestToken}`
     }
   };
 }
 
-async function initializeOrganizationConfig() {
-  const credentials = `${process.env.SFCC_CLIENT_ID}:${process.env.SFCC_SECRET}`;
-  const base64data = Buffer.from(credentials).toString('base64');
-  const headers = { Authorization: `Basic ${base64data}` };
-
-  const clientConfig = {
-    headers,
-    parameters: {
-      clientId: process.env.SFCC_CLIENT_ID,
-      secret: process.env.SFCC_SECRET,
-      organizationId: process.env.SFCC_ORGANIZATIONID,
-      shortCode: process.env.SFCC_SHORTCODE,
-      siteId: process.env.SFCC_SITEID
-    }
-  };
-
-  const client = new Customer.ShopperLogin(clientConfig);
-
-  const shopperToken = await client.getAccessToken({
-    headers,
-    body: {
-      grant_type: 'client_credentials',
-      channel_id: process.env.SFCC_SITEID
-    }
-  });
-
-  const configWithAuth = {
-    ...clientConfig,
-    headers: { authorization: `Bearer ${shopperToken.access_token}` }
-  };
-
-  return configWithAuth;
-}
-
-async function getSFCCCollections(): Promise<Collection[]> {
-  const config = await initializeOrganizationConfig();
+async function getSFCCCollections(guestToken: string | undefined): Promise<Collection[]> {
+  const config = await getGuestUserConfig(guestToken);
   const productsClient = new SalesforceProduct.ShopperProducts(config);
 
   const result = await productsClient.getCategories({
@@ -328,8 +359,8 @@ async function getSFCCCollections(): Promise<Collection[]> {
   return reshapeCategories(result.data || []);
 }
 
-async function getSFCCProduct(id: string) {
-  const config = await initializeOrganizationConfig();
+async function getSFCCProduct(id: string, guestToken: string | undefined) {
+  const config = await getGuestUserConfig(guestToken);
   const productsClient = new SalesforceProduct.ShopperProducts(config);
 
   const product = await productsClient.getProduct({
@@ -343,16 +374,12 @@ async function getSFCCProduct(id: string) {
   return reshapeProduct(product);
 }
 
-async function searchProducts({
-  query,
-  categoryId,
-  sortKey = defaultSort.sortKey
-}: {
-  query?: string;
-  categoryId?: string;
-  sortKey?: string;
-}) {
-  const config = await initializeOrganizationConfig();
+async function searchProducts(
+  options: { query?: string; categoryId?: string; sortKey?: string },
+  guestToken: string | undefined
+) {
+  const { query, categoryId, sortKey = defaultSort.sortKey } = options;
+  const config = await getGuestUserConfig(guestToken);
 
   const searchClient = new Search.ShopperSearch(config);
   const searchResults = await searchClient.productSearch({
