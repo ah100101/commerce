@@ -20,13 +20,13 @@ export async function getProductRecommendations<T>(productId: string): Promise<T
 
 async function ocFetch<T>(options: {
   method: 'POST' | 'GET';
-  endpoint?: string;
+  endpoint: string;
   cache?: RequestCache;
   headers?: HeadersInit;
   tags?: string[];
   variables?: ExtractVariables<T>;
 }): Promise<{ status: number; body: T } | never> {
-  const apiEndpoint = `${ocapiDomain}${process.env.SFCC_OPENCOMMERCE_DATA_API_ENDPOINT}?client_id=${process.env.SFCC_CLIENT_ID}&channel_id=${process.env.SFCC_SITEID}`;
+  const apiEndpoint = `${ocapiDomain}${process.env.SFCC_OPENCOMMERCE_SHOP_API_ENDPOINT}${options.endpoint}?client_id=${process.env.SFCC_CLIENT_ID}`;
   return salesforceFetch<T>({
     ...options,
     apiEndpoint

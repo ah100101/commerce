@@ -68,7 +68,7 @@ export const validateEnvironmentVariables = () => {
     'SFCC_SHORTCODE',
     'SFCC_SITEID',
     'SFCC_SANDBOX_DOMAIN',
-    'SFCC_OPENCOMMERCE_DATA_API_ENDPOINT',
+    'SFCC_OPENCOMMERCE_SHOP_API_ENDPOINT',
     'SFCC_REVALIDATION_SECRET'
   ];
   const missingEnvironmentVariables = [] as string[];
