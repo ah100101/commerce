@@ -5,7 +5,7 @@ import { unstable_cache as cache, revalidateTag } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { getProductRecommendations as getOCProductRecommendations } from './ocapi';
-import { CartItem, Collection, Image, Product, ProductRecommendations } from './types';
+import { Cart, CartItem, Collection, Image, Product, ProductRecommendations } from './types';
 
 const config = {
   headers: {},
@@ -98,7 +98,7 @@ export async function createCart() {
   return reshapeBasket(createdBasket, cartItems);
 }
 
-export async function getCart(cartId: string | undefined) {
+export async function getCart(cartId: string | undefined): Promise<Cart | undefined> {
   // get the guest token to get the correct guest cart
   const guestToken = cookies().get('guest_token')?.value;
 
@@ -607,22 +607,22 @@ function reshapeProductItem(
   };
 }
 
-function reshapeBasket(basket: ShopperBaskets.Basket, cartItems: CartItem[]) {
+function reshapeBasket(basket: ShopperBaskets.Basket, cartItems: CartItem[]): Cart {
   return {
     id: basket.basketId!,
     checkoutUrl: '/checkout',
     cost: {
       subtotalAmount: {
-        amount: basket.productSubTotal ?? 0,
-        currencyCode: basket.currency ?? 'USD'
+        amount: basket.productSubTotal?.toString() || '0',
+        currencyCode: basket.currency || 'USD'
       },
       totalAmount: {
-        amount: (basket.productSubTotal ?? 0) + (basket.merchandizeTotalTax ?? 0),
-        currencyCode: basket.currency ?? 'USD'
+        amount: `${(basket.productSubTotal ?? 0) + (basket.merchandizeTotalTax ?? 0)}`,
+        currencyCode: basket.currency || 'USD'
       },
       totalTaxAmount: {
-        amount: basket.merchandizeTotalTax ?? '0',
-        currencyCode: basket.currency ?? 'USD'
+        amount: basket.merchandizeTotalTax?.toString() || '0',
+        currencyCode: basket.currency || 'USD'
       }
     },
     totalQuantity: cartItems?.reduce((acc, item) => acc + (item?.quantity ?? 0), 0) ?? 0,

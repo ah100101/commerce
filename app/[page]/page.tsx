@@ -9,7 +9,7 @@ export async function generateMetadata({
 }: {
   params: { page: string };
 }): Promise<Metadata> {
-  const page = await getPage(params.page);
+  const page = getPage(params.page);
 
   if (!page) return notFound();
 
@@ -24,8 +24,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({ params }: { params: { page: string } }) {
-  const page = await getPage(params.page);
+export default function Page({ params }: { params: { page: string } }) {
+  const page = getPage(params.page);
 
   if (!page) return notFound();
 
