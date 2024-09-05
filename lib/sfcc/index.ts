@@ -32,7 +32,7 @@ export const getCollections = cache(
   }
 );
 
-export function getCollection(handle: string): Promise<Collection | undefined> {
+export function getCollection(handle: string) {
   return getCollections().then((collections) => collections.find((c) => c.handle === handle));
 }
 
@@ -66,7 +66,7 @@ export const getProducts = cache(
   }
 );
 
-export async function createCart(): Promise<Cart> {
+export async function createCart() {
   let guestToken = cookies().get('guest_token')?.value;
 
   // if there is not a guest token, get one and store it in a cookie
@@ -77,7 +77,7 @@ export async function createCart(): Promise<Cart> {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 60 * 60,
+      maxAge: 60 * 30,
       path: '/'
     });
   }
@@ -98,7 +98,7 @@ export async function createCart(): Promise<Cart> {
   return reshapeBasket(createdBasket, cartItems);
 }
 
-export async function getCart(cartId: string | undefined): Promise<Cart | undefined> {
+export async function getCart(cartId: string | undefined) {
   // get the guest token to get the correct guest cart
   const guestToken = cookies().get('guest_token')?.value;
 
@@ -162,7 +162,7 @@ export async function addToCart(
   }
 }
 
-export async function removeFromCart(cartId: string, lineIds: string[]): Promise<Cart> {
+export async function removeFromCart(cartId: string, lineIds: string[]) {
   // Next Commerce only sends one lineId at a time
   if (lineIds.length !== 1) throw new Error('Invalid number of line items provided');
 
@@ -192,27 +192,46 @@ export async function updateCart(
   const config = await getGuestUserConfig(guestToken);
 
   const basketClient = new Checkout.ShopperBaskets(config);
-  const basket = await basketClient.getBasket({
+
+  // ProductItem quantity can not be updated through the API
+  // Quantity updates need to remove all items from the cart and add them back with updated quantities
+  // See: https://developer.salesforce.com/docs/commerce/commerce-api/references/shopper-baskets?meta=updateBasket
+
+  // create removePromises for each line
+  const removePromises = lines.map((line) =>
+    basketClient.removeItemFromBasket({
+      parameters: {
+        basketId: cartId,
+        itemId: line.id
+      }
+    })
+  );
+
+  // wait for all removals to resolve
+  await Promise.all(removePromises);
+
+  // create addPromises for each line
+  const addPromises = lines.map((line) =>
+    basketClient.addItemToBasket({
+      parameters: {
+        basketId: cartId
+      },
+      body: [
+        {
+          productId: line.merchandiseId,
+          quantity: line.quantity
+        }
+      ]
+    })
+  );
+
+  // wait for all additions to resolve
+  await Promise.all(addPromises);
+
+  // all updates are done, get the updated basket
+  const updatedBasket = await basketClient.getBasket({
     parameters: {
       basketId: cartId
-    }
-  });
-
-  const updatedProductItems = basket.productItems?.map((productItem) => {
-    return {
-      ...productItem,
-      quantity:
-        lines.find((line) => line.id === productItem.itemId)?.quantity || productItem.quantity
-    };
-  });
-
-  const updatedBasket = await basketClient.updateBasket({
-    parameters: {
-      basketId: cartId
-    },
-    body: {
-      ...basket,
-      productItems: updatedProductItems
     }
   });
 
@@ -220,7 +239,7 @@ export async function updateCart(
   return reshapeBasket(updatedBasket, cartItems);
 }
 
-export async function getProductRecommendations(productId: string): Promise<Product[]> {
+export async function getProductRecommendations(productId: string) {
   const ocProductRecommendations =
     await getOCProductRecommendations<ProductRecommendations>(productId);
 
@@ -251,7 +270,7 @@ export async function getProductRecommendations(productId: string): Promise<Prod
   return reshapeProducts(sortedResults);
 }
 
-export async function revalidate(req: NextRequest): Promise<NextResponse> {
+export async function revalidate(req: NextRequest) {
   const collectionWebhooks = ['collections/create', 'collections/delete', 'collections/update'];
   const productWebhooks = ['products/create', 'products/delete', 'products/update'];
   const topic = headers().get('x-sfcc-topic') || 'unknown';
@@ -280,7 +299,7 @@ export async function revalidate(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ status: 200, revalidated: true, now: Date.now() });
 }
 
-async function getGuestUserAuthToken(): Promise<Customer.ShopperLogin.TokenResponse> {
+async function getGuestUserAuthToken() {
   const base64data = Buffer.from(
     `${process.env.SFCC_CLIENT_ID}:${process.env.SFCC_SECRET}`
   ).toString('base64');
@@ -308,7 +327,7 @@ async function getGuestUserConfig(token?: string) {
   };
 }
 
-async function getSFCCCollections(): Promise<Collection[]> {
+async function getSFCCCollections() {
   const config = await getGuestUserConfig();
   const productsClient = new SalesforceProduct.ShopperProducts(config);
 
@@ -373,7 +392,7 @@ async function searchProducts(options: { query?: string; categoryId?: string; so
   return reshapeProducts(sortedResults);
 }
 
-async function getCartItems(createdBasket: ShopperBaskets.Basket): Promise<CartItem[]> {
+async function getCartItems(createdBasket: ShopperBaskets.Basket) {
   const cartItems: CartItem[] = [];
 
   if (createdBasket.productItems) {
@@ -424,7 +443,7 @@ function reshapeCategory(
   };
 }
 
-function reshapeCategories(categories: SalesforceProduct.ShopperProducts.Category[]): Collection[] {
+function reshapeCategories(categories: SalesforceProduct.ShopperProducts.Category[]) {
   const reshapedCategories = [];
   for (const category of categories) {
     if (category) {
@@ -437,7 +456,7 @@ function reshapeCategories(categories: SalesforceProduct.ShopperProducts.Categor
   return reshapedCategories;
 }
 
-function reshapeProduct(product: SalesforceProduct.ShopperProducts.Product): Product {
+function reshapeProduct(product: SalesforceProduct.ShopperProducts.Product) {
   if (!product.name) {
     throw new Error('Product name is not set');
   }
@@ -494,7 +513,7 @@ function reshapeProduct(product: SalesforceProduct.ShopperProducts.Product): Pro
   };
 }
 
-function reshapeProducts(products: SalesforceProduct.ShopperProducts.Product[]): Product[] {
+function reshapeProducts(products: SalesforceProduct.ShopperProducts.Product[]) {
   const reshapedProducts = [];
   for (const product of products) {
     if (product) {
@@ -588,7 +607,7 @@ function reshapeProductItem(
   };
 }
 
-function reshapeBasket(basket: ShopperBaskets.Basket, cartItems: CartItem[]): Cart {
+function reshapeBasket(basket: ShopperBaskets.Basket, cartItems: CartItem[]) {
   return {
     id: basket.basketId!,
     checkoutUrl: '/checkout',

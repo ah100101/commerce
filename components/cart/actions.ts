@@ -116,6 +116,6 @@ export async function createCartAndSetCookie() {
   let cart = await createCart();
   // set the cartId to the same duration as the guest
   cookies().set('cartId', cart.id!, {
-    maxAge: 60 * 60
+    maxAge: 60 * 30
   });
 }
