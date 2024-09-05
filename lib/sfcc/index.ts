@@ -22,101 +22,49 @@ type SortedProductResult = {
   index: number;
 };
 
-export const getCollections = async () => {
-  const cookieStore = cookies();
-  const token = cookieStore.get('guest_token')?.value || '';
-
-  const cachedGetSFCCCollections = cache(
-    async (tokenParam: string) => {
-      return await getSFCCCollections(tokenParam);
-    },
-    ['get-collections'],
-    {
-      tags: [TAGS.collections]
-    }
-  );
-
-  return cachedGetSFCCCollections(token);
-};
+export const getCollections = cache(
+  async () => {
+    return await getSFCCCollections();
+  },
+  ['get-collections'],
+  {
+    tags: [TAGS.collections]
+  }
+);
 
 export function getCollection(handle: string): Promise<Collection | undefined> {
   return getCollections().then((collections) => collections.find((c) => c.handle === handle));
 }
 
-export const getProduct = async (id: string) => {
-  const cookieStore = cookies();
-  const token = cookieStore.get('guest_token')?.value || '';
+export const getProduct = cache(async (id: string) => getSFCCProduct(id), ['get-product'], {
+  tags: [TAGS.products]
+});
 
-  const cachedGetSFCCProduct = cache(
-    async (productId: string, token: string) => {
-      return await getSFCCProduct(productId, token);
-    },
-    ['get-product'],
-    {
-      tags: [TAGS.products]
-    }
-  );
+export const getCollectionProducts = cache(
+  async ({
+    collection,
+    reverse,
+    sortKey
+  }: {
+    collection: string;
+    reverse?: boolean;
+    sortKey?: string;
+  }) => {
+    return await searchProducts({ categoryId: collection, sortKey });
+  },
+  ['get-collection-products'],
+  { tags: [TAGS.products, TAGS.collections] }
+);
 
-  return cachedGetSFCCProduct(id, token);
-};
-
-export const getCollectionProducts = async ({
-  collection,
-  reverse,
-  sortKey
-}: {
-  collection: string;
-  reverse?: boolean;
-  sortKey?: string;
-}) => {
-  const cookieStore = cookies();
-  const token = cookieStore.get('guest_token')?.value || '';
-
-  const cachedCollectionProducts = cache(
-    async (
-      {
-        collection,
-        reverse,
-        sortKey
-      }: {
-        collection: string;
-        reverse?: boolean;
-        sortKey?: string;
-      },
-      token: string
-    ) => {
-      return await searchProducts({ categoryId: collection, sortKey }, token);
-    },
-    ['get-collection-products'],
-    { tags: [TAGS.products, TAGS.collections] }
-  );
-
-  return cachedCollectionProducts({ collection, reverse, sortKey }, token);
-};
-
-export const getProducts = async ({
-  query,
-  sortKey
-}: {
-  query?: string;
-  sortKey?: string;
-  reverse?: boolean;
-}) => {
-  const cookieStore = cookies();
-  const token = cookieStore.get('guest_token')?.value || '';
-
-  const cachedSearchProducts = cache(
-    async (searchParams: { query?: string; sortKey?: string }, token: string) => {
-      return await searchProducts(searchParams, token);
-    },
-    ['get-products'],
-    {
-      tags: [TAGS.products]
-    }
-  );
-
-  return cachedSearchProducts({ query, sortKey }, token);
-};
+export const getProducts = cache(
+  async ({ query, sortKey }: { query?: string; sortKey?: string; reverse?: boolean }) => {
+    return await searchProducts({ query, sortKey });
+  },
+  ['get-products'],
+  {
+    tags: [TAGS.products]
+  }
+);
 
 export async function createCart(): Promise<Cart> {
   let guestToken = cookies().get('guest_token')?.value;
@@ -360,8 +308,8 @@ async function getGuestUserConfig(token?: string) {
   };
 }
 
-async function getSFCCCollections(guestToken: string | undefined): Promise<Collection[]> {
-  const config = await getGuestUserConfig(guestToken);
+async function getSFCCCollections(): Promise<Collection[]> {
+  const config = await getGuestUserConfig();
   const productsClient = new SalesforceProduct.ShopperProducts(config);
 
   const result = await productsClient.getCategories({
@@ -373,8 +321,8 @@ async function getSFCCCollections(guestToken: string | undefined): Promise<Colle
   return reshapeCategories(result.data || []);
 }
 
-async function getSFCCProduct(id: string, guestToken: string | undefined) {
-  const config = await getGuestUserConfig(guestToken);
+async function getSFCCProduct(id: string) {
+  const config = await getGuestUserConfig();
   const productsClient = new SalesforceProduct.ShopperProducts(config);
 
   const product = await productsClient.getProduct({
@@ -388,12 +336,9 @@ async function getSFCCProduct(id: string, guestToken: string | undefined) {
   return reshapeProduct(product);
 }
 
-async function searchProducts(
-  options: { query?: string; categoryId?: string; sortKey?: string },
-  guestToken: string | undefined
-) {
+async function searchProducts(options: { query?: string; categoryId?: string; sortKey?: string }) {
   const { query, categoryId, sortKey = defaultSort.sortKey } = options;
-  const config = await getGuestUserConfig(guestToken);
+  const config = await getGuestUserConfig();
 
   const searchClient = new Search.ShopperSearch(config);
   const searchResults = await searchClient.productSearch({
